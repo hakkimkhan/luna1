@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #fff9c4; /* Light yellow page background */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+
+    h1 {
+      color: #333;
+      margin-top: 10px;
+      font-size: 1.5rem;
+    }
+
+    .game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 10px;
+      background-color: #fff176; /* Slightly darker yellow */
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      width: 200px;
+      margin-bottom: 10px;
+      font-weight: bold;
+      color: #444;
+    }
+
+    .puzzle {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      grid-template-rows: repeat(3, 80px);
+      gap: 5px;
+    }
+
+    .tile {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 22px;
+      font-weight: bold;
+      background-color: #ffeb3b;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .tile:active {
+      transform: scale(0.95);
+    }
+
+    .empty {
+      background-color: transparent;
+      box-shadow: none;
+      cursor: default;
+    }
+
+    /* Popup styling */
+    .popup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      text-align: center;
+      z-index: 100;
+      width: 300px;
+    }
+
+    .popup h2 {
+      color: #333;
+    }
+
+    .leaderboard {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #fff9c4;
+      border-radius: 5px;
+      width: 250px;
+    }
+
+    button {
+      padding: 8px 15px;
+      background-color: #ffca28;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    button:hover {
+      background-color: #ffc107;
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 500px) {
+      .puzzle {
+        grid-template-columns: repeat(3, 70px);
+        grid-template-rows: repeat(3, 70px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>3x3 Sliding Puzzle Game</h1>
+
+  <div class="game-container">
+    <div class="stats">
+      <div>Moves: <span id="moves">0</span></div>
+      <div>Time: <span id="time">0s</span></div>
+    </div>
+    <div class="puzzle" id="puzzle"></div>
+  </div>
+
+  <div class="leaderboard">
+    <h3>🏆 Leaderboard</h3>
+    <ol id="leaderboard-list"></ol>
+  </div>
+
+  <!-- Popup -->
+  <div class="popup" id="popup">
+    <h2>🎉 Congratulations!</h2>
+    <p id="result"></p>
+    <h3>Top Players:</h3>
+    <ol id="top-players"></ol>
+    <button onclick="restartGame()">Play Again</button>
+  </div>
+
+  <!-- Move Sound -->
+  <audio id="move-sound" src="https://www.soundjay.com/buttons/sounds/button-29.mp3"></audio>
+
+  <script>
+    const puzzle = document.getElementById("puzzle");
+    const movesDisplay = document.getElementById("moves");
+    const timeDisplay = document.getElementById("time");
+    const popup = document.getElementById("popup");
+    const result = document.getElementById("result");
+    const leaderboardList = document.getElementById("leaderboard-list");
+    const topPlayersList = document.getElementById("top-players");
+    const moveSound = document.getElementById("move-sound");
+
+    let tiles = [];
+    let moves = 0;
+    let time = 0;
+    let timerInterval;
+    let playerName;
+
+    // Ask player name
+    function askPlayerName() {
+      playerName = prompt("Enter your name:");
+      if (!playerName || playerName.trim() === "") {
+        playerName = "Player";
+      }
+    }
+
+    // Start timer
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        time++;
+        timeDisplay.textContent = `${time}s`;
+      }, 1000);
+    }
+
+    // Stop timer
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    // Initialize puzzle
+    function initPuzzle() {
+      askPlayerName();
+      tiles = [...Array(8).keys()].map(n => n + 1);
+      tiles.push("");
+      shuffle(tiles);
+      renderPuzzle();
+      moves = 0;
+      movesDisplay.textContent = moves;
+      time = 0;
+      timeDisplay.textContent = `${time}s`;
+      clearInterval(timerInterval);
+    }
+
+    // Shuffle tiles
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    // Render puzzle
+    function renderPuzzle() {
+      puzzle.innerHTML = "";
+      tiles.forEach((tile, index) => {
+        const div = document.createElement("div");
+        div.textContent = tile;
+        div.className = "tile";
+        if (tile === "") div.classList.add("empty");
+        div.addEventListener("click", () => moveTile(index));
+        puzzle.appendChild(div);
+      });
+    }
+
+    // Move tiles
+    function moveTile(index) {
+      const emptyIndex = tiles.indexOf("");
+      const validMoves = [emptyIndex - 1, emptyIndex + 1, emptyIndex - 3, emptyIndex + 3];
+      if (validMoves.includes(index) && isValidMove(emptyIndex, index)) {
+        [tiles[emptyIndex], tiles[index]] = [tiles[index], tiles[emptyIndex]];
+        moves++;
+        movesDisplay.textContent = moves;
+        moveSound.play();
+        renderPuzzle();
+        if (moves === 1) startTimer();
+        checkWin();
+      }
+    }
+
+    // Check if move is valid horizontally
+    function isValidMove(emptyIndex, index) {
+      if (emptyIndex % 3 === 2 && index === emptyIndex + 1) return false;
+      if (emptyIndex % 3 === 0 && index === emptyIndex - 1) return false;
+      return true;
+    }
+
+    // Check win
+    function checkWin() {
+      const winState = ["1","2","3","4","5","6","7","8",""];
+      if (tiles.join() === winState.join()) {
+        stopTimer();
+        saveResult();
+        showPopup();
+      }
+    }
+
+    // Save results in localStorage
+    function saveResult() {
+      const record = { name: playerName, moves, time };
+      const scores = JSON.parse(localStorage.getItem("puzzleScores")) || [];
+      scores.push(record);
+      scores.sort((a, b) => a.moves - b.moves || a.time - b.time);
+      localStorage.setItem("puzzleScores", JSON.stringify(scores));
+      updateLeaderboard();
+    }
+
+    // Update leaderboard
+    function updateLeaderboard() {
+      const scores = JSON.parse(localStorage.getItem("puzzleScores")) || [];
+      leaderboardList.innerHTML = "";
+      scores.slice(0, 3).forEach(score => {
+        const li = document.createElement("li");
+        li.textContent = `${score.name} - ${score.moves} moves (${score.time}s)`;
+        leaderboardList.appendChild(li);
+      });
+    }
+
+    // Show popup
+    function showPopup() {
+      const scores = JSON.parse(localStorage.getItem("puzzleScores")) || [];
+      result.textContent = `${playerName}, you finished in ${moves} moves and ${time} seconds!`;
+      topPlayersList.innerHTML = "";
+      scores.slice(0, 3).forEach(score => {
+        const li = document.createElement("li");
+        li.textContent = `${score.name} - ${score.moves} moves (${score.time}s)`;
+        topPlayersList.appendChild(li);
+      });
+      popup.style.display = "block";
+    }
+
+    // Restart game
+    function restartGame() {
+      popup.style.display = "none";
+      initPuzzle();
+    }
+
+    // Initialize game on load
+    window.onload = () => {
+      initPuzzle();
+      updateLeaderboard();
+    };
+  </script>
+</body>
+</html>
